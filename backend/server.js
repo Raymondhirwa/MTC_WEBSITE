@@ -52,8 +52,11 @@ ${message}`
         // Respond on success
         res.status(200).json({ success: 'Message sent successfully!' });
     } catch (error) {
-        console.error('Email error:', error);
-        res.status(500).json({ error: 'Failed to send message.' });
+        console.error('FULL EMAIL ERROR:', error);
+        res.status(500).json({
+            error: 'Failed to send message.',
+            details: error.message
+        });
     }
 });
 
