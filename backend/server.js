@@ -17,37 +17,25 @@ app.use(
 // Email Transporter Configuration
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true,
     family: 4,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    tls: {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2'
-    },
-    connectionTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    socketTimeout: 15000,
     pool: {
-        maxConnections: 5,
+        maxConnections: 3,
         maxMessages: 100,
-        rateDelta: 4000,
-        rateLimit: 14
-    },
-    logger: false,
-    debug: false
-});
-
-// Verify SMTP connection
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('SMTP Connection Error:', error);
-    } else {
-        console.log('✅ SMTP Server connected successfully');
+        rateDelta: 5000,
+        rateLimit: 10
     }
 });
+
+// Don't verify on startup - verify on first email send instead
+let smtpVerified = false;
 
 // POST route to handle form submission
 app.post('/api/contact', async (req, res) => {
@@ -72,11 +60,25 @@ Message:
 ${message}`
         };
 
-        // Send Email
-        await transporter.sendMail(mailOptions);
+        // Retry logic for sending email
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                await transporter.sendMail(mailOptions);
+                res.status(200).json({ success: 'Message sent successfully!' });
+                return;
+            } catch (error) {
+                lastError = error;
+                console.error(`Email send attempt ${attempt} failed:`, error.message);
+                
+                if (attempt < 3) {
+                    // Wait before retrying (exponential backoff: 2s, 4s)
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+                }
+            }
+        }
         
-        // Respond on success
-        res.status(200).json({ success: 'Message sent successfully!' });
+        throw lastError;
     } catch (error) {
         console.error('FULL EMAIL ERROR:', error);
         res.status(500).json({
