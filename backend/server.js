@@ -19,13 +19,32 @@ const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
-    family: 4,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
     tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+    },
+    connectionTimeout: 10000,
+    socketTimeout: 10000,
+    pool: {
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 4000,
+        rateLimit: 14
+    },
+    logger: true,
+    debug: true
+});
+
+// Verify SMTP connection
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP Connection Error:', error);
+    } else {
+        console.log('✅ SMTP Server connected successfully');
     }
 });
 
